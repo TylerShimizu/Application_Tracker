@@ -1,5 +1,5 @@
-from sqlalchemy import String, create_engine, Date, DateTime, String, Text, func, Enum as SqlEnum
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from sqlalchemy import String, create_engine, Date, DateTime, String, Text, func, Enum as SqlEnum, ForeignKey
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker, relationship
 import enum
 
 from app.core.config import config
@@ -15,6 +15,7 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String, index=True)
+    jobs: Mapped[list["Job"]] = relationship("Job", back_populates="user", cascade="all, delete-orphan")
 
 class JobStatus(enum.Enum):
     applied = "applied"
@@ -27,6 +28,8 @@ class Job(Base):
     __tablename__ = "jobs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    user: Mapped["User"] = relationship("User", back_populates="jobs")
     title: Mapped[str] = mapped_column(String, index=True)
     company: Mapped[str] = mapped_column(String, index=True)
     location: Mapped[str | None] = mapped_column(String, index=True)

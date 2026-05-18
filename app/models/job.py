@@ -4,6 +4,7 @@ from datetime import date
 from app.db.schema import JobStatus
 
 class JobCreate(BaseModel):
+    user_id: int
     title: str
     company: str
     status: JobStatus.applied
@@ -13,6 +14,7 @@ class JobCreate(BaseModel):
 
 class JobRead(BaseModel):
     id: int
+    user_id: int
     title: str
     company: str
     status: JobStatus
