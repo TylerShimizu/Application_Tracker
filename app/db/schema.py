@@ -1,5 +1,6 @@
-from sqlalchemy import String, create_engine
+from sqlalchemy import String, create_engine, Date, DateTime, String, Text, func, Enum as SqlEnum
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+import enum
 
 from app.core.config import config
 
@@ -14,3 +15,22 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String, index=True)
+
+class JobStatus(enum.Enum):
+    applied = "applied"
+    interviewing = "interviewing"
+    offered = "offered"
+    rejected = "rejected"
+    intersted = "interested"
+
+class Job(Base):
+    __tablename__ = "jobs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String, index=True)
+    company: Mapped[str] = mapped_column(String, index=True)
+    location: Mapped[str | None] = mapped_column(String, index=True)
+    status: Mapped[JobStatus] = mapped_column(SqlEnum(JobStatus), default=JobStatus.applied, index=True)
+    date_applied: Mapped[str | None] = mapped_column(String, index=True)
+    job_url: Mapped[str | None] = mapped_column(String, index=True)
+
