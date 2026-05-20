@@ -1,6 +1,8 @@
+from datetime import date
+
 from sqlalchemy.orm import Session
 
-from app.db.schema import Job
+from app.db.schema import Job, JobStatus, User
 
 class JobService:
     """Service for managing jobs."""
@@ -11,8 +13,20 @@ class JobService:
     def list_jobs(self, user_id: int) -> list[Job]:
         return self._db.query(Job).filter(Job.user_id == user_id).all()
 
-    def create_job(self, title: str, company: str, status: str, user_id: int, location: str | None = None, date_applied: str | None = None, job_url: str | None = None) -> Job:
+    def create_job(
+        self,
+        title: str,
+        company: str,
+        status: JobStatus,
+        user_id: int,
+        location: str | None = None,
+        date_applied: date | None = None,
+        job_url: str | None = None,
+    ) -> Job | None:
         """Create a new job."""
+        user = self._db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return None
         job = Job(title=title, company=company, status=status, user_id=user_id, location=location, date_applied=date_applied, job_url=job_url)
         self._db.add(job)
         self._db.commit()
@@ -26,7 +40,17 @@ class JobService:
             return None
         return job
 
-    def update_job(self, job_id: int, user_id: int, title: str | None = None, company: str | None = None, status: str | None = None, location: str | None = None, date_applied: str | None = None, job_url: str | None = None) -> Job | None:
+    def update_job(
+        self,
+        job_id: int,
+        user_id: int,
+        title: str | None = None,
+        company: str | None = None,
+        status: JobStatus | None = None,
+        location: str | None = None,
+        date_applied: date | None = None,
+        job_url: str | None = None,
+    ) -> Job | None:
         """Update a job."""
         job = self._db.query(Job).filter(Job.id == job_id, Job.user_id == user_id).first()
         if not job:

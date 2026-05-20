@@ -1,13 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
-from app.db.schema import SessionLocal
-from app.models.user import UserCreate, UserRead
+from app.api.dependencies import get_current_user, get_db
+from app.core.security import create_access_token
+from app.db.schema import User
+from app.models.user import Token, UserCreate, UserLogin, UserRead, UserUpdate
 from app.services.user_service import UserService
 
 router = APIRouter()
 
-def get_user_service() -> UserService:
-    return UserService(session=SessionLocal())
+def get_user_service(db: Session = Depends(get_db)) -> UserService:
+    return UserService(session=db)
 
 @router.get("/users", response_model=list[UserRead])
 def get_users(service: UserService = Depends(get_user_service)):
@@ -17,7 +20,27 @@ def get_users(service: UserService = Depends(get_user_service)):
 @router.post("/users", response_model=UserRead)
 def create_user(user: UserCreate, service: UserService = Depends(get_user_service)):
     """Create a new user."""
-    return service.create_user(name=user.name)
+    created_user = service.create_user(name=user.name, password=user.password)
+    if not created_user:
+        raise HTTPException(status_code=400, detail="User already exists")
+    return created_user
+
+@router.post("/login", response_model=Token)
+def login(user: UserLogin, service: UserService = Depends(get_user_service)):
+    """Log in and receive a bearer token."""
+    authenticated_user = service.authenticate_user(
+        name=user.name,
+        password=user.password,
+    )
+    if not authenticated_user:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    return Token(access_token=create_access_token(user_id=authenticated_user.id))
+
+@router.get("/users/me", response_model=UserRead)
+def get_me(current_user: User = Depends(get_current_user)):
+    """Get the currently logged-in user."""
+    return current_user
 
 @router.get("/users/{user_id}", response_model=UserRead)
 def get_user(user_id: int, service: UserService = Depends(get_user_service)):
@@ -28,7 +51,7 @@ def get_user(user_id: int, service: UserService = Depends(get_user_service)):
     return user
 
 @router.put("/users/{user_id}", response_model=UserRead)
-def update_user(user_id: int, user: UserCreate, service: UserService = Depends(get_user_service)):
+def update_user(user_id: int, user: UserUpdate, service: UserService = Depends(get_user_service)):
     """Update a user's name."""
     updated_user = service.update_user(user_id, name=user.name)
     if not updated_user:

@@ -1,18 +1,20 @@
 from pydantic import BaseModel
 from datetime import date
+from pydantic import ConfigDict
 
 from app.db.schema import JobStatus
 
 class JobCreate(BaseModel):
-    user_id: int
     title: str
     company: str
-    status: JobStatus.applied
+    status: JobStatus = JobStatus.applied
     location: str | None = None
     date_applied: date | None = None
     job_url: str | None = None
 
 class JobRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     title: str

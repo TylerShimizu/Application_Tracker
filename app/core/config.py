@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 
 load_dotenv()
 
@@ -12,5 +12,9 @@ class Config(BaseSettings):
 
     # Database settings
     DB_URL: str = "sqlite:///./test.db"
+
+    # Auth settings
+    SECRET_KEY: str = "change-me-in-production"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
 config = Config()
