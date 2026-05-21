@@ -5,17 +5,17 @@ from app.api.dependencies import get_current_user, get_db
 from app.core.security import create_access_token
 from app.db.schema import User
 from app.models.user import Token, UserCreate, UserLogin, UserRead, UserUpdate
-from app.services.user_service import UserService
+from app.services.user_service import DuplicateUsernameError, UserService
 
 router = APIRouter()
 
 def get_user_service(db: Session = Depends(get_db)) -> UserService:
     return UserService(session=db)
 
-@router.get("/users", response_model=list[UserRead])
-def get_users(service: UserService = Depends(get_user_service)):
-    """Get a list of all users."""
-    return service.list_user()
+# @router.get("/users", response_model=list[UserRead])
+# def get_users(service: UserService = Depends(get_user_service)):
+#     """Get a list of all users."""
+#     return service.list_user()
 
 @router.post("/users", response_model=UserRead)
 def create_user(user: UserCreate, service: UserService = Depends(get_user_service)):
@@ -51,16 +51,24 @@ def get_user(user_id: int, service: UserService = Depends(get_user_service)):
     return user
 
 @router.put("/users/{user_id}", response_model=UserRead)
-def update_user(user_id: int, user: UserUpdate, service: UserService = Depends(get_user_service)):
+def update_user(user_id: int, user: UserUpdate, service: UserService = Depends(get_user_service), current_user: User = Depends(get_current_user)):
     """Update a user's name."""
-    updated_user = service.update_user(user_id, name=user.name)
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this user")
+    try:
+        updated_user = service.update_user(user_id, name=user.name)
+    except DuplicateUsernameError:
+        raise HTTPException(status_code=400, detail="User already exists")
+
     if not updated_user:
         raise HTTPException(status_code=404, detail="User not found")
     return updated_user
 
 @router.delete("/users/{user_id}")
-def delete_user(user_id: int, service: UserService = Depends(get_user_service)):
+def delete_user(user_id: int, service: UserService = Depends(get_user_service), current_user: User = Depends(get_current_user)):
     """Delete a user by ID."""
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this user")
     success = service.delete_user(user_id)
     if not success:
         raise HTTPException(status_code=404, detail="User not found")

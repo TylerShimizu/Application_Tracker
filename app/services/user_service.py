@@ -1,7 +1,11 @@
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.schema import User
 from app.core.security import hash_password, verify_password
+
+class DuplicateUsernameError(Exception):
+    """Raised when a username is already taken by another user."""
 
 class UserService:
     """Service for managing users."""
@@ -46,8 +50,18 @@ class UserService:
         user = self._db.query(User).filter(User.id == user_id).first()
         if not user:
             return None
+
+        existing_user = self.get_user_by_name(name=name)
+        if existing_user and existing_user.id != user_id:
+            raise DuplicateUsernameError
+
         user.name = name
-        self._db.commit()
+        try:
+            self._db.commit()
+        except IntegrityError as exc:
+            self._db.rollback()
+            raise DuplicateUsernameError from exc
+
         self._db.refresh(user)
         return user
     
