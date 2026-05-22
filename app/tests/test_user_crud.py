@@ -31,6 +31,8 @@ def test_get_user_that_exists(client, create_user):
     assert response.status_code == 200
     assert response.json()["id"] == created_user["id"]
     assert response.json()["name"] == "get_user"
+    assert "password" not in response.json()
+    assert "hashed_password" not in response.json()
 
 
 def test_get_user_that_does_not_exist_errors(client):
@@ -56,6 +58,31 @@ def test_update_own_username(client, create_user):
 
     assert response.status_code == 200
     assert response.json()["name"] == "new_name"
+
+
+def test_update_user_without_token_errors(client, create_user):
+    created_user = create_user(name="needs_token").json()
+
+    response = client.put(
+        f"/api/v1/users/{created_user['id']}",
+        json={"name": "new_name"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+
+def test_update_user_with_malformed_token_errors(client, create_user):
+    created_user = create_user(name="bad_update_token").json()
+
+    response = client.put(
+        f"/api/v1/users/{created_user['id']}",
+        headers={"Authorization": "Bearer not-a-real-token"},
+        json={"name": "new_name"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid authentication credentials"
 
 
 def test_update_user_that_does_not_exist_errors(client, auth_headers):
@@ -90,6 +117,23 @@ def test_update_username_to_existing_name_errors(client, create_user):
     assert response.json()["detail"] == "User already exists"
 
 
+def test_update_username_to_invalid_name_errors(client, create_user):
+    created_user = create_user(name="valid_update_user").json()
+    login = client.post(
+        "/api/v1/login",
+        json={"name": "valid_update_user", "password": "password123"},
+    )
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    response = client.put(
+        f"/api/v1/users/{created_user['id']}",
+        headers=headers,
+        json={"name": "../bad"},
+    )
+
+    assert response.status_code == 422
+
+
 def test_delete_own_user(client, create_user):
     created_user = create_user(name="delete_me").json()
     login = client.post(
@@ -102,6 +146,28 @@ def test_delete_own_user(client, create_user):
 
     assert response.status_code == 200
     assert response.json()["detail"] == "User deleted successfully"
+    assert client.get(f"/api/v1/users/{created_user['id']}").status_code == 404
+
+
+def test_delete_user_without_token_errors(client, create_user):
+    created_user = create_user(name="delete_needs_token").json()
+
+    response = client.delete(f"/api/v1/users/{created_user['id']}")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Not authenticated"
+
+
+def test_delete_user_with_malformed_token_errors(client, create_user):
+    created_user = create_user(name="bad_delete_token").json()
+
+    response = client.delete(
+        f"/api/v1/users/{created_user['id']}",
+        headers={"Authorization": "Bearer not-a-real-token"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid authentication credentials"
 
 
 def test_delete_user_that_is_not_current_user_errors(client, create_user):
