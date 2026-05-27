@@ -11,12 +11,16 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.api.dependencies import get_db
-from app.api.v1 import job, user
+from app.api.v1 import assistant, job, user
+from app.core.config import config
 from app.db.schema import Base
 
 
 @pytest.fixture()
 def client(tmp_path):
+    original_openai_api_key = config.OPENAI_API_KEY
+    config.OPENAI_API_KEY = None
+
     test_db_path = tmp_path / "test.db"
     test_engine = create_engine(
         f"sqlite:///{test_db_path}",
@@ -40,6 +44,7 @@ def client(tmp_path):
     app = FastAPI()
     app.include_router(user.router, prefix="/api/v1")
     app.include_router(job.router, prefix="/api/v1")
+    app.include_router(assistant.router, prefix="/api/v1")
     app.dependency_overrides[get_db] = override_get_db
 
     with TestClient(app) as test_client:
@@ -47,6 +52,7 @@ def client(tmp_path):
 
     app.dependency_overrides.clear()
     Base.metadata.drop_all(bind=test_engine)
+    config.OPENAI_API_KEY = original_openai_api_key
 
 
 @pytest.fixture()
