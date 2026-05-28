@@ -1,7 +1,7 @@
 import enum
 from datetime import date
 
-from sqlalchemy import Date, Enum as SqlEnum, ForeignKey, String, create_engine
+from sqlalchemy import Date, Enum as SqlEnum, ForeignKey, String, Text, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
 from app.core.config import config
@@ -27,6 +27,14 @@ class JobStatus(str, enum.Enum):
     rejected = "rejected"
     interested = "interested"
 
+class JobSource(str, enum.Enum):
+    linkedin = "linkedin"
+    indeed = "indeed"
+    company_site = "company_site"
+    referral = "referral"
+    recruiter = "recruiter"
+    other = "other"
+
 class Job(Base):
     __tablename__ = "jobs"
 
@@ -37,5 +45,7 @@ class Job(Base):
     company: Mapped[str] = mapped_column(String, index=True)
     location: Mapped[str | None] = mapped_column(String, index=True)
     status: Mapped[JobStatus] = mapped_column(SqlEnum(JobStatus), default=JobStatus.applied, index=True)
+    source: Mapped[JobSource | None] = mapped_column(SqlEnum(JobSource), index=True)
     date_applied: Mapped[date | None] = mapped_column(Date, index=True)
     job_url: Mapped[str | None] = mapped_column(String, index=True)
+    notes: Mapped[str | None] = mapped_column(Text)

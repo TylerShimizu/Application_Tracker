@@ -2,7 +2,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
-from app.db.schema import Job, JobStatus, User
+from app.db.schema import Job, JobSource, JobStatus, User
 
 class JobService:
     """Service for managing jobs."""
@@ -19,15 +19,27 @@ class JobService:
         company: str,
         status: JobStatus,
         user_id: int,
+        source: JobSource | None = None,
         location: str | None = None,
         date_applied: date | None = None,
         job_url: str | None = None,
+        notes: str | None = None,
     ) -> Job | None:
         """Create a new job."""
         user = self._db.query(User).filter(User.id == user_id).first()
         if not user:
             return None
-        job = Job(title=title, company=company, status=status, user_id=user_id, location=location, date_applied=date_applied, job_url=job_url)
+        job = Job(
+            title=title,
+            company=company,
+            status=status,
+            user_id=user_id,
+            source=source,
+            location=location,
+            date_applied=date_applied,
+            job_url=job_url,
+            notes=notes,
+        )
         self._db.add(job)
         self._db.commit()
         self._db.refresh(job)
@@ -47,9 +59,11 @@ class JobService:
         title: str | None = None,
         company: str | None = None,
         status: JobStatus | None = None,
+        source: JobSource | None = None,
         location: str | None = None,
         date_applied: date | None = None,
         job_url: str | None = None,
+        notes: str | None = None,
     ) -> Job | None:
         """Update a job."""
         job = self._db.query(Job).filter(Job.id == job_id, Job.user_id == user_id).first()
@@ -61,12 +75,16 @@ class JobService:
             job.company = company
         if status is not None:
             job.status = status
+        if source is not None:
+            job.source = source
         if location is not None:
             job.location = location
         if date_applied is not None:
             job.date_applied = date_applied
         if job_url is not None:
             job.job_url = job_url
+        if notes is not None:
+            job.notes = notes
         self._db.commit()
         self._db.refresh(job)
         return job

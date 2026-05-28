@@ -30,9 +30,11 @@ def create_job(
                                      company=job.company, 
                                      status=job.status, 
                                      user_id=current_user.id,
+                                     source=job.source,
                                      location=job.location, 
                                      date_applied=job.date_applied, 
-                                     job_url=job.job_url)
+                                     job_url=job.job_url,
+                                     notes=job.notes)
     if not created_job:
         raise HTTPException(status_code=404, detail="User not found")
     return created_job
@@ -62,9 +64,11 @@ def update_job(
                                      title=job.title, 
                                      company=job.company, 
                                      status=job.status, 
+                                     source=job.source,
                                      location=job.location, 
                                      date_applied=job.date_applied, 
-                                     job_url=job.job_url)
+                                     job_url=job.job_url,
+                                     notes=job.notes)
     if not updated_job:
         raise HTTPException(status_code=404, detail="Job not found")
     return updated_job

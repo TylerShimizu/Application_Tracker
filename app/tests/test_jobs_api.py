@@ -17,6 +17,48 @@ def test_create_job_for_current_user(client, auth_headers):
     assert response.json()["user_id"] == 1
 
 
+def test_create_job_with_source_and_notes(client, auth_headers):
+    headers = auth_headers(name="job_notes_owner")
+
+    response = client.post(
+        "/api/v1/jobs",
+        headers=headers,
+        json={
+            "title": "Backend Developer",
+            "company": "Acme",
+            "status": "interviewing",
+            "source": "linkedin",
+            "notes": "Talked about the company mission during the interview.",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["source"] == "linkedin"
+    assert response.json()["notes"] == "Talked about the company mission during the interview."
+
+
+def test_update_job_source_and_notes(client, auth_headers):
+    headers = auth_headers(name="job_update_notes_owner")
+    created_job = client.post(
+        "/api/v1/jobs",
+        headers=headers,
+        json={"title": "Backend Developer", "company": "Acme"},
+    ).json()
+
+    response = client.put(
+        f"/api/v1/jobs/{created_job['id']}",
+        headers=headers,
+        json={
+            "source": "referral",
+            "notes": "Referral came from a former teammate.",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["source"] == "referral"
+    assert response.json()["notes"] == "Referral came from a former teammate."
+
+
 def test_create_job_without_token_errors(client):
     response = client.post(
         "/api/v1/jobs",
@@ -29,6 +71,22 @@ def test_create_job_without_token_errors(client):
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Not authenticated"
+
+
+def test_create_job_with_invalid_source_errors(client, auth_headers):
+    headers = auth_headers(name="invalid_source_owner")
+
+    response = client.post(
+        "/api/v1/jobs",
+        headers=headers,
+        json={
+            "title": "Backend Developer",
+            "company": "Acme",
+            "source": "linkedin-but-typo",
+        },
+    )
+
+    assert response.status_code == 422
 
 
 def test_create_job_with_invalid_status_errors(client, auth_headers):
