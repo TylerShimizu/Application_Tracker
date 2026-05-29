@@ -1,8 +1,8 @@
 # Application Tracker API
 
-Application Tracker API is a FastAPI backend for tracking job applications by user. It supports authenticated user accounts, user-owned job records, job status tracking, and a chatbot assistant integration that can answer natural-language questions about a user's applications.
+Application Tracker API is a FastAPI backend for tracking job applications by user. It supports authenticated accounts, user-owned job records, status tracking, application source/notes, and a chatbot-style assistant endpoint for natural-language questions about a user's applications.
 
-The chatbot is designed to answer questions like:
+The assistant can answer questions like:
 
 - Which companies have I not heard back from yet?
 - How many jobs have I applied to?
@@ -10,7 +10,7 @@ The chatbot is designed to answer questions like:
 - When was the last time I applied to a role?
 - How long ago did I apply to a company?
 
-The assistant should translate natural-language questions into structured query plans, then let the application execute safe queries.
+The assistant translates natural-language questions into structured query plans, then the application executes safe SQLAlchemy queries scoped to the authenticated user. It does not generate or execute raw SQL.
 
 ## Features
 
@@ -19,10 +19,10 @@ The assistant should translate natural-language questions into structured query 
 - Password hashing before storage
 - User-owned job records
 - Create, read, update, and delete job applications
-- Job status tracking
+- Job status, source, notes, date, location, and URL tracking
+- Assistant endpoint for status, frequency, source, company, role, and recency questions
 - Temporary SQLite test database setup
-- API tests for auth, users, JWT behavior, and jobs
-- Project context docs for future AI-assisted development
+- API tests for auth, users, JWT behavior, jobs, and assistant queries
 
 ## Tech Stack
 
@@ -33,42 +33,44 @@ The assistant should translate natural-language questions into structured query 
 - SQLite
 - Pytest
 - JWT-style bearer authentication
+- Optional OpenAI API integration for assistant query planning
 
 ## Project Structure
 
 ```text
-app/
-  api/
-    dependencies.py
-    v1/
-      user.py
-      job.py
-  core/
-    config.py
-    security.py
-    logging.py
-  db/
-    schema.py
-  models/
-    user.py
-    job.py
-  services/
-    user_service.py
-    job_service.py
-  tests/
-    conftest.py
-    test_auth_login.py
-    test_jwt_tokens.py
-    test_user_crud.py
-    test_jobs_api.py
-Context/
-  AI_CONTEXT.md
-  ARCHITECTURE.md
-  CONVENTIONS.md
-Agent_Logs/
-  AI_LOG.md
-  DECISIONS.md
-main.py
+.
+├── .env.example
+├── .gitignore
+├── README.md
+├── main.py
+└── app/
+    ├── api/
+    │   ├── dependencies.py
+    │   └── v1/
+    │       ├── assistant.py
+    │       ├── job.py
+    │       └── user.py
+    ├── core/
+    │   ├── config.py
+    │   ├── logging.py
+    │   └── security.py
+    ├── db/
+    │   └── schema.py
+    ├── models/
+    │   ├── assistant.py
+    │   ├── job.py
+    │   └── user.py
+    ├── services/
+    │   ├── assistant_service.py
+    │   ├── job_service.py
+    │   └── user_service.py
+    └── tests/
+        ├── conftest.py
+        ├── test_assistant_api.py
+        ├── test_auth_login.py
+        ├── test_jobs_api.py
+        ├── test_jwt_tokens.py
+        └── test_user_crud.py
 ```
 
 ## API Overview
@@ -108,9 +110,38 @@ rejected
 interested
 ```
 
+Current job sources:
+
+```text
+linkedin
+indeed
+company_site
+referral
+recruiter
+other
+```
+
+### Assistant
+
+```text
+POST /api/v1/assistant/query
+```
+
+Assistant queries require authentication and only return data for the current user.
+
+Supported assistant intents include:
+
+```text
+list_jobs
+count_jobs
+list_companies
+last_application
+days_since_last_application
+```
+
 ## Local Setup
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root using `.env.example` as the starting point:
 
 ```env
 APP_NAME="My Application Tracker"
@@ -118,9 +149,11 @@ APP_VERSION="1.0.0"
 DB_URL="sqlite:///./test.db"
 SECRET_KEY="replace-this-with-a-long-random-secret"
 ACCESS_TOKEN_EXPIRE_MINUTES=30
+OPENAI_API_KEY=""
+OPENAI_MODEL="gpt-4o-mini"
 ```
 
-Install dependencies in your Python environment. This project currently assumes FastAPI, SQLAlchemy, Pydantic, pydantic-settings, python-dotenv, and pytest are available.
+Install dependencies in your Python environment. This project currently assumes FastAPI, SQLAlchemy, Pydantic, pydantic-settings, python-dotenv, pytest, and uvicorn are available. The `openai` package is only needed when using OpenAI-backed assistant planning.
 
 Run the API:
 
@@ -167,15 +200,25 @@ Create a job:
   "title": "Backend Developer",
   "company": "Acme",
   "status": "applied",
+  "source": "linkedin",
   "location": "Remote",
-  "date_applied": "2026-05-28",
-  "job_url": "https://example.com/job"
+  "date_applied": "2026-05-29",
+  "job_url": "https://example.com/job",
+  "notes": "Talked about the company mission during the interview."
+}
+```
+
+Ask the assistant:
+
+```json
+{
+  "message": "Which companies have I not heard back from yet?"
 }
 ```
 
 ## Chatbot Integration
 
-The chatbot feature is intended to let users ask plain-English questions about their own job applications.
+The chatbot feature lets users ask plain-English questions about their own job applications.
 
 Examples:
 
@@ -184,6 +227,8 @@ Which companies have I not heard back from yet?
 How many jobs have I applied to?
 How many times did I apply to backend roles?
 When was the last time I applied to Acme?
+How long ago did I apply to Acme?
+List jobs from LinkedIn.
 ```
 
 The safe design is:
@@ -208,6 +253,8 @@ The assistant should only return structured intent and filters, such as:
 
 Application code is responsible for executing database queries and enforcing user ownership.
 
+If `OPENAI_API_KEY` is configured, the assistant uses OpenAI-backed structured planning. If no API key is configured, the service falls back to a small rule-based planner for supported local queries.
+
 ## Testing
 
 Run the test suite:
@@ -225,4 +272,4 @@ Tests use temporary SQLite databases and override the app database dependency, s
 - Keep user-owned data scoped by `current_user.id`.
 - Do not return passwords or password hashes from API responses.
 - Do not let AI-generated text execute raw database queries.
-- Update `Context/` and `Agent_Logs/` when making important architectural or AI-assisted changes.
+- Do not commit files ignored by `.gitignore`, including `.env`, caches, local databases, `Context/`, and `Agent_Logs/`.
